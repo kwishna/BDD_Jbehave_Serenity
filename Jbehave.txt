@@ -1,0 +1,1178 @@
+Jars :- JBehave Core, JBehave Junit.
+
+@RunWith(AnnotatedEmbedderRunner.class)
+@Configure(storyControls = MyStoryControls.class, storyLoader = MyStoryLoader.class, storyReporterBuilder = MyReportBuilder.class, 
+        parameterConverters = { MyDateConverter.class })
+@UsingEmbedder(embedder = Embedder.class, generateViewAfterStories = true, ignoreFailureInStories = true, ignoreFailureInView = true, verboseFailures = true,
+                storyTimeoutInSecs = 100, threads = 2, metaFilters = "-skip")
+@UsingSteps(instances = { TraderSteps.class, BeforeAfterSteps.class, AndSteps.class, CalendarSteps.class,
+        PriorityMatchingSteps.class, SandpitSteps.class, SearchSteps.class }, packages = { "org.jbehave.examples.core.steps", "my.other.steps"},
+                           matchingNames = ".*Steps", notMatchingNames = ".*SkipSteps")
+						   
+public class AnnotatedTraderEmbedder extends InjectableEmbedder {
+ 
+    @Test
+    public void run() {
+        List<String> storyPaths = new StoryFinder().findPaths(codeLocationFromClass(this.getClass()), "**/*.story", "");
+        injectedEmbedder().runStoriesAsPaths(storyPaths);
+    }
+ 
+    public static class MyStoryControls extends StoryControls {
+        public MyStoryControls() {
+            doDryRun(false);
+            doSkipScenariosAfterFailure(false);
+        }
+    }
+ 
+    public static class MyStoryLoader extends LoadFromClasspath {
+        public MyStoryLoader() {
+            super(AnnotatedTraderEmbedder.class.getClassLoader());
+        }
+    }
+ 
+    public static class MyReportBuilder extends StoryReporterBuilder {
+        public MyReportBuilder() {
+            this.withFormats(CONSOLE, TXT, HTML, XML).withDefaultFormats();
+        }
+    }
+ 
+    public static class MyRegexPrefixCapturingPatternParser extends RegexPrefixCapturingPatternParser {
+        public MyRegexPrefixCapturingPatternParser() {
+            super("%");
+        }
+    }
+ 
+    public static class MyDateConverter extends DateConverter {
+        public MyDateConverter() {
+            super(new SimpleDateFormat("yyyy-MM-dd"));
+        }
+    }
+ 
+}
+
+	-> Run As : Junit
+ ------------------------------------------------------------------------------------------------------------------------------
+ public class JbehaveRunner2 extends JUnitStories {
+
+	private final CrossReference xref = new CrossReference();
+
+	public JbehaveRunner2() {
+
+		configuredEmbedder().embedderControls().doGenerateViewAfterStories(true).doIgnoreFailureInStories(false)
+				.doIgnoreFailureInView(true).doVerboseFailures(true).useThreads(2).useStoryTimeouts("60000");
+
+		configuredEmbedder().useEmbedderControls(new PropertyBasedEmbedderControls());
+	}
+
+	@Override
+	public Configuration configuration() {
+
+		Class<? extends Embeddable> embeddableClass = this.getClass();
+
+		Keywords keywords = new LocalizedKeywords(locale());
+		Properties viewResources = new Properties();
+		viewResources.put("decorateNonHtml", "false");
+		viewResources.setProperty("encoding", "UTF-8");
+//		viewResources.put("reports", "ftl/jbehave-reports-with-totals.ftl");
+		 
+// 		Start from default ParameterConverters instance
+		ParameterConverters parameterConverters = new ParameterConverters();
+		
+// 		factory to allow parameter conversion and loading from external resources (used by StoryParser too)
+		ExamplesTableFactory examplesTableFactory = new ExamplesTableFactory(new LocalizedKeywords(), new LoadFromClasspath(embeddableClass),
+				parameterConverters, new ParameterControls(), new TableTransformers());
+		
+// 		add custom converters
+		parameterConverters.addConverters(new DateConverter(new SimpleDateFormat("yyyy-MM-dd")), new ExamplesTableConverter(examplesTableFactory));
+
+		return new MostUsefulConfiguration()
+						.useStoryLoader(new LoadFromClasspath(embeddableClass))
+						.useStoryParser(new RegexStoryParser(examplesTableFactory))
+						.useStoryReporterBuilder(new StoryReporterBuilder()
+						.withCodeLocation(CodeLocations.codeLocationFromClass(embeddableClass)).withDefaultFormats()
+						.withRelativeDirectory("my-output")
+						.withViewResources(viewResources)
+						.withFormats(Format.CONSOLE, Format.TXT, Format.HTML)
+						.withFailureTrace(true)
+						.withKeywords(keywords))
+						.withFailureTraceCompression(true).withCrossReference(xref))
+						.useParameterConverters(parameterConverters)
+						.usePendingStepStrategy(new FailingUponPendingStep())
+						.useStepMonitor(new PrintStreamStepMonitor()) // default is SilentStepMonitor()
+						.doDryRun(false)
+// 				 		use '%' instead of '$' to identify parameters
+						.useStepPatternParser(new RegexPrefixCapturingPatternParser("%")).useStepMonitor(xref.getStepMonitor());
+	}
+
+	@Override
+	public InjectableStepsFactory stepsFactory() {
+		return new InstanceStepsFactory(configuration(), new JbehaveImplementation());
+	}
+
+	@Override
+	protected List<String> storyPaths() {
+		// Specify story paths as URLs
+		return new StoryFinder().findPaths(CodeLocations.codeLocationFromClass(this.getClass()).getFile(),
+				Arrays.asList("**/*.story"), Arrays.asList(""));
+	}
+}
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ #Best Working JUnit Runner :-
+ import org.jbehave.core.Embeddable;
+ import org.jbehave.core.annotations.Configure;
+ import org.jbehave.core.annotations.UsingEmbedder;
+ import org.jbehave.core.annotations.UsingSteps;
+ import org.jbehave.core.embedder.Embedder;
+ import org.jbehave.core.embedder.StoryControls;
+ import org.jbehave.core.io.CodeLocations;
+ import org.jbehave.core.io.LoadFromClasspath;
+ import org.jbehave.core.io.StoryFinder;
+ import org.jbehave.core.junit.AnnotatedEmbedderRunner;
+ import org.jbehave.core.parsers.RegexPrefixCapturingPatternParser;
+ import org.jbehave.core.reporters.StoryReporterBuilder;
+ import org.jbehave.core.steps.ParameterConverters.DateConverter;
+ import org.junit.Test;
+ import org.junit.runner.RunWith;
+
+ import java.text.SimpleDateFormat;
+ import java.util.Arrays;
+
+ @RunWith(AnnotatedEmbedderRunner.class)
+ @Configure(storyLoader = JBehaveJunitBest.MyStoryLoader.class, storyReporterBuilder = JBehaveJunitBest.MyReportBuilder.class, parameterConverters = { JBehaveJunitBest.MyDateConverter.class })
+ @UsingEmbedder(embedder = Embedder.class, generateViewAfterStories = true, ignoreFailureInStories = true, ignoreFailureInView = true, storyTimeouts = "1d", threads = 2, failOnStoryTimeout = false)
+ @UsingSteps(packages = { "jbehave", "mysteps" }, matchingNames = ".*Steps", notMatchingNames = ".*SkipSteps") // instances ={ JbehaveImpl.class },
+ public class JBehaveJunitBest implements Embeddable {
+
+ 	private Embedder embedder;
+
+ 	public void useEmbedder(Embedder embedder) {
+ 		this.embedder = embedder;
+ 	}
+
+ 	//	public JBehaveJunitBest(){
+    //		this.embedder = new org.jbehave.core.configuration.AnnotationBuilder(this.getClass()).buildEmbedder();
+    //	}
+
+ 	@Test
+ 	public void run() {
+ 		embedder.runStoriesAsPaths(
+ 				new StoryFinder().findPaths(CodeLocations.codeLocationFromClass(this.getClass()).getFile(),
+ 						Arrays.asList("**/*Verify.story"), Arrays.asList("")));
+ 	}
+
+ 	public static class MyStoryControls extends StoryControls {
+ 		public MyStoryControls() {
+ 			doDryRun(false);
+ 			doSkipScenariosAfterFailure(false);
+ 		}
+ 	}
+
+ 	public static class MyStoryLoader extends LoadFromClasspath {
+ 		public MyStoryLoader() {
+ 			super(Thread.currentThread().getClass().getClassLoader());
+ //			super(JBehaveJunit.class.getClassLoader());
+
+ 		}
+ 	}
+
+ 	public static class MyReportBuilder extends StoryReporterBuilder {
+ 		public MyReportBuilder() {
+ 			this.withFormats(org.jbehave.core.reporters.Format.CONSOLE, org.jbehave.core.reporters.Format.TXT, org.jbehave.core.reporters.Format.HTML, org.jbehave.core.reporters.Format.XML).withDefaultFormats();
+ 		}
+ 	}
+
+ 	public static class MyRegexPrefixCapturingPatternParser extends RegexPrefixCapturingPatternParser {
+ 		public MyRegexPrefixCapturingPatternParser() {
+ 			super("%");
+ 		}
+ 	}
+
+ 	public static class MyDateConverter extends DateConverter {
+ 		public MyDateConverter() {
+ 			super(new SimpleDateFormat("yyyy-MM-dd"));
+ 		}
+ 	}
+
+ }
+ -----------------------------------------------------------------------------------------------------------------
+Stroy File Syntax :-
+A story is a collection of scenarios
+ 
+Narrative:
+In order to communicate effectively to the business some functionality
+As a development team
+I want to use Behaviour-Driven Development
+ 
+Lifecycle: 
+Before:
+Scope: STORY
+Given a step that is executed before each story
+
+Scope: SCENARIO
+Given a step that is executed before each scenario
+
+Scope: STEP
+Given a step that is executed before each scenario step
+
+After:
+Scope: STEP
+Given a step that is executed after each scenario step
+
+Scope: SCENARIO
+Outcome: ANY
+Given a step that is executed after each scenario regardless of outcome
+
+Outcome: SUCCESS 
+Given a step that is executed after each successful scenario
+
+Outcome: FAILURE 
+Given a step that is executed after each failed scenario
+
+Scope: STORY
+Outcome: ANY
+Given a step that is executed after each story regardless of outcome
+
+Outcome: SUCCESS
+Given a step that is executed after each successful story
+
+Outcome: FAILURE
+Given a step that is executed after each failed story
+
+Scenario:  A scenario is a collection of executable steps of different type
+ 
+Given step represents a precondition to an event
+When step represents the occurrence of the event
+Then step represents the outcome of the event
+ 
+Scenario:  Another scenario exploring different combination of events
+ 
+Given a [precondition]
+When a negative event occurs
+Then a the outcome should [be-captured]    
+ 
+Examples: 
+|precondition|be-captured|
+|abc|be captured    |
+|xyz|not be captured|
+
+    -----------------------------------------
+
+Lifecycle:
+After:
+Scope: SCENARIO|STORY
+Outcome: ANY
+[steps to executed after any scenario or story]
+
+	-----------------------------------------
+
+Feature: A story is a collection of scenarios
+ 
+Narrative:
+In order to communicate effectively to the business some functionality
+As a development team
+I want to use Behaviour-Driven Development
+     
+Background:
+Given a step that is executed before each scenario 
+ 
+Scenario:  A scenario is a collection of executable steps of different type
+
+GivenStories: ./storyTwo.story  // Running The Story At This Path Before Scenario
+
+Given step represents a precondition to an event
+When step represents the occurrence of the event
+Then step represents the outcome of the event
+ 
+Scenario Outline:  Another scenario exploring different combination of events
+ 
+Given a [precondition]
+When a negative event occurs
+Then a the outcome should [be-captured]    
+ 
+Examples: 
+|precondition|be-captured|
+|abc|be captured    |
+|xyz|not be captured|
+
+------------------------------------------------------------------------------------------
+Behave supports the following method step annotations:
+
+@Given
+@When
+@Then
+@Alias
+@Aliases
+@Pending
+
+@Given("a stock of symbol $symbol and a threshold of $threshold")
+public void aStock(String symbol, double threshold) {
+    // ...
+}
+ 
+@When("the stock is traded at $price")
+@Alias("the stock is exchanged at $price") // single alias    
+public void theStockIsTradedAt(double price) {
+    // ...
+}
+ 
+@Then("the alert status should be $status")
+@Aliases(values={"the trader should be alerted of status $status",
+                 "the alert status is at $status"}) // multiple aliases    
+public void theAlertStatusShouldBe(String status) {
+    // ...
+}
+
+@Given("ho un'azione con simbolo $symbol e una soglia di $threshold")
+    public void aStock(@Named("symbol") String symbol, @Named("threshold") double threshold) {
+        stock = new Stock(symbol, threshold);
+    }
+
+
+# Aliases Are Optional.
+--------------------------------------------------------------------------------------------
+# Annotations In Jbehave :-
+
+@BeforeScenario
+public void beforeEachScenario() {
+    // ...
+}
+ 
+@BeforeScenario(uponType=ScenarioType.EXAMPLE)
+public void beforeEachExampleScenario() {
+    // ...
+}
+     
+@AfterScenario // equivalent to  @AfterScenario(uponOutcome=AfterScenario.Outcome.ANY)
+public void afterAnyScenario() {
+    // ...
+}
+ 
+@AfterScenario(uponType=ScenarioType.EXAMPLE)
+public void afterEachExampleScenario() {
+    // ...
+}
+     
+@AfterScenario(uponOutcome=AfterScenario.Outcome.SUCCESS)
+public void afterSuccessfulScenario() {
+    // ...
+}
+     
+@AfterScenario(uponOutcome=AfterScenario.Outcome.FAILURE)
+public void afterFailedScenario() {
+    // ...
+}
+@BeforeStory // equivalent to @BeforeStory(uponGivenStory=false)
+public void beforeStory() {
+    // ...
+}
+ 
+@BeforeStory(uponGivenStory=true)
+public void beforeGivenStory() {
+    // ...
+}
+     
+@AfterStory // equivalent to @AfterStory(uponGivenStory=false)
+public void afterStory() {
+    // ...
+}
+ 
+@AfterStory(uponGivenStory=true)
+public void afterGivenStory() {
+    // ...
+}
+
+# The @BeforeStories and @AfterStories annotations allow the corresponding methods
+	to be executed before and after a collection of stories :-
+@BeforeStories
+public void beforeStories() {
+    // ...
+}
+ 
+@AfterStories
+public void afterStories() {
+    // ...
+}
+
+--------------------------------------------------------------------------------------------
+At its heart, we have the 'Embeddable' interface, which can specify the 'Embedder' to use for the running of the stories.
+The Embedder separates the concerns of the configuration of the story execution from the matching of the textual story steps to Java methods:
+
+Configuration instances are responsible for the configuration of story execution.
+CandidateSteps instances are used to find the Java methods that match the textual steps in the stories.
+The Embedder needs both the Configuration and the list of CandidateSteps.
+
+The @Pending annotation allows steps developers to mark any step method as pending:
+
+@Given("a stock of symbol $symbol and a threshold of $threshold")
+@Pending
+public void aStock(String symbol, double threshold) {
+    // not yet implemented
+}
+----------------------------------------------------------------
+<plugin>
+    <groupId>org.jbehave</groupId>
+    <artifactId>jbehave-maven-plugin</artifactId>
+    <version>4.4</version>
+    <executions>
+        <execution>
+            <id>run-stories-as-embeddables</id>
+            <phase>integration-test</phase>
+            <configuration>
+                <includes>
+                    <include>**/*.java</include>
+                </includes>
+                <metaFilters>
+                    <metaFilter>+author *</metaFilter>
+                    <metaFilter>-skip</metaFilter>
+                </metaFilters>
+                <systemProperties>
+                    <property>
+                      <name>java.awt.headless</name>
+                      <value>true</value>
+                    </property>
+                </systemProperties>
+                <ignoreFailureInStories>true</ignoreFailureInStories>
+                <ignoreFailureInView>false</ignoreFailureInView>
+            </configuration>
+            <goals>
+                <goal>run-stories-as-embeddables</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+----------------------------------------------------------------------
+@Then(value="the value returned is empty", priority=1)
+public void theValueIsEmpty()
+ 
+@Then("the value returned is $value")
+public void theValueIs(String value)
+----------------------------------------------------------------------------
+Remote Location 
+
+public class RemoteTraderStories extends TraderStories {
+ 
+    @Override
+    public Configuration configuration() {
+        return super.configuration()
+               .useStoryLoader(new LoadFromURL())
+               .useStoryReporterBuilder(
+                       new StoryReporterBuilder()
+                           .withCodeLocation(codeLocationFromURL("http://jbehave.org/reference/examples/stories/"))
+                           .withDefaultFormats()
+                           .withFormats(CONSOLE, TXT, HTML, XML));
+    }
+ 
+    @Override
+    protected List<String> storyPaths() {
+        // Specify story paths as remote URLs
+        String codeLocation = codeLocationFromURL("http://jbehave.org/reference/examples/stories/")
+                .toExternalForm();
+        return asList(codeLocation + "and_step.story");
+    }
+ 
+}
+--------------------------------------------------------------------
+Own Keyword Bundle :-
+Write a properties bundle containing the following keywords and save it
+as i18n/keywords_xx.properties. In jbheave-core jar.
+E.g. for Italian i18n/keywords_it.properties:
+
+Meta=Meta:
+MetaProperty=@
+Narrative=Narrativa:
+InOrderTo=Per ottenere
+AsA=In qualit\u00E0 di
+IWantTo=Voglio
+SoThat=Al fine di
+Scenario=Scenario:
+GivenStories=Date le Storie\:
+Lifecycle=Ciclo di vita:
+Before=Prima:
+After=Dopo:
+ExamplesTable=Esempi:
+ExamplesTableRow=Esempio:
+ExamplesTableHeaderSeparator=|
+ExamplesTableValueSeparator=|
+ExamplesTableIgnorableSeparator=|--
+Given=Dato che
+When=Quando
+Then=Allora
+And=E
+Ignorable=!--
+Pending=IN SOSPESO
+NotPerformed=NON ESEGUITO
+Failed=FALLITO
+DryRun=ESECUZIONE SIMULATA
+StoryCancelled=STORIA SOPPRESSA
+Duration=DURATA
+Scope=Ambito:
+ScopeScenario=SCENARIO
+ScopeStory=STORIA
+MetaFilter=MetaFilter:
+Outcome=Esito:
+OutcomeAny=QUALUNQUE
+OutcomeSuccess=SUCCESSO
+OutcomeFailure=FALLIMENTO
+OutcomeDescription=Descrizione
+OutcomeValue=Valore
+OutcomeMatcher=Matcher
+OutcomeVerified=Verificato
+Yes=S\u00EC
+No=No
+
+Keywords keywords = new LocalizedKeywords(new Locale("it"));
+ClassLoader classLoader = ... // the classloader where to find the bundle from
+Keywords keywords = new LocalizedKeywords(new Locale("it"), "mykeywords/keys", classLoader);
+
+-------------------------------------------------------------------------------------------
+
+We Can Introduce Our Own Keyword As Well :-
+
+simply add synonyms to the i18n locale entry, separated by "|":
+And=And|With|Having
+-------------------------------------------------------
+When the item price is 10.0 : Actual
+If we also want to support the following equivalent expressions:
+
+When the item cost is 10.0
+When the price is 10.0
+When the cost is 10.0
+
+then we could define two aliases, but it's simpler and more compact to write a pattern with variants. E.g.:
+
+@When("the {item |}{price|cost} is $price")
+public void theItemPriceIs(double price) {
+    // ...
+}
+
+Final -> A {x|y|z} B => A x B, A y B, A z B
+		 A {x|y|z|} B => A x B, A y B, A z B, A B
+
+
+---------------------------------------------------------
+One reason to use named parameters is that then we can have method parameter appearing in any order:
+
+@Given("a stock of symbol $symbol and a threshold of $threshold")
+public void aStock(@Named("threshold") double aThreshold, @Named("symbol") String aSymbol) {
+    // ...
+}
+---------------------------------------------------------
+If we had comma-separated values, e.g
+
+Given a stock of symbols STK1, STK2 and thresholds of 10.0,20.0
+these would handled automatically as well, provided the type of the parameter was a List
+
+@Given("a stock of symbols $symbols and thresholds $thresholds")
+public void aStock(List<String> symbols, List<Double> thresholds) {
+    // ...
+}
+Another common use case is that of date conversion. The step would typically look like:
+
+When a stock of symbol STK1 is traded on 09/09/2009
+and the matching step is
+
+@When("a stock of symbol $symbol is traded on $tradedOn")
+public void aStockIsTradedOn(String symbol, Date tradedOn) {
+    // ...
+}
+--------------------------------------------------------
+Parametrized Scenario :
+
+Given a stock of <symbol> and a <threshold>
+When the stock is traded at <price>
+Then the alert status should be <status>
+ 
+Examples:     
+|symbol|threshold|price|status|
+|STK1|10.0|5.0|OFF|
+|STK1|10.0|11.0|ON|
+
+Require @Named parameter here for data driven testing:-
+@Named Must Be There To Fetch From Examples Value Provided.
+@Given("a stock of <symbol> and a <threshold>")
+public void aStock(@Named("symbol") String symbol, @Named("threshold") double threshold) {
+    // ...
+}
+
+Matches both :-
+@Given("a stock of symbol $symbol and a threshold of $threshold") // standalone
+@Alias("a stock of <symbol> and a <threshold>") // examples table
+public void aStock(@Named("symbol") String symbol, @Named("threshold") double threshold) {
+    // ...
+}
+--------------------------------------------------------------------------------------
+Given step represents a precondition to an event: General.table
+
+@Given("step represents a precondition to an event: $table")
+public void first(ExamplesTable table) {
+	System.out.println(":: step represents a precondition to an event ---- ");
+	System.out.println(table.getHeaders());
+	Parameters row = table.getRowAsParameters(0);
+    String name = row.valueAs("data", String.class);
+}
+
+-------------------------------------------------------------------------------------
+Then step represents the outcome of the second event data:
+|data|
+|one|
+|two|
+
+@Then("step represents the outcome of the second event data: $table")
+public void four(ExamplesTable table) {
+	System.out.println(":: step represents the outcome of the event -----");
+	System.out.println(table.getHeaders());
+	Parameters row = table.getRowAsParameters(0);
+	String name = row.valueAs("data", String.class);
+	System.out.println("-------->"+name);
+	}
+------------------------------------------------------------------------------------
+Custom Symbol :-
+@Given("a stock of [symbol] and a [threshold]")
+public void aStock(@Named("symbol") String symbol, @Named("threshold") double threshold) {
+    // ...
+}
+
+The only thing we need to do is to tell the StepCreator to use the custom parameter name
+delimiters when replacing the parameter value. We do this by configuring a custom instance of ParameterControls:
+new MostUsefulConfiguration().useParameterControls(new ParameterControls().useNameDelimiterLeft("[").useNameDelimiterRight("]"));
+
+Version 4 onwards :-
+Given a stock of <symbol> and a <threshold>
+And a stock of <alternate_symbol> and a <threshold>
+ 
+Examples:     
+|symbol|alternate_symbol|threshold|
+|STK1|ALT1|1.0|
+Both steps would be matched by the method:
+
+@Given("a stock of symbol $symbol") 
+public void aStock(String symbol) {
+    // ...
+}
+
+External Table :-
+The parameters table can also be loaded from an external resource, be it a classpath resource or a URL.
+Given a stock of <symbol> and a <threshold>
+When the stock is traded at <price>
+Then the alert status should be <status>
+ 
+Examples: 
+org/jbehave/examples/trader/stories/trades.table
+
+new MostUsefulConfiguration()
+        .useStoryParser(new RegexStoryParser(new ExamplesTableFactory(new LoadFromClasspath(this.getClass()))))
+
+------------------------------------------------------------------------
+Reusing Stories :-
+JBehave allow the specification of entire stories as a pre-requisite for another story or scenario.
+
+!-- A precondition to entire story
+GivenStories: path/to/precondition1.story
+ 
+Scenario:  A scenario in which the user can run additional stories as pre-requisites
+ 
+!-- preconditions to scenario    
+GivenStories: path/to/precondition2.story,
+              ...
+              path/to/preconditionN.story
+ 
+Given ... // normal scenario steps
+
+When JBehave encounters the keyword GivenStories, it will run the (one or more) textual stories specified by path in the list
+(using the same Steps instances specified for the parent story) before proceeding to the execution of the scenarios
+(if at story level) or scenario steps (if at scenario level).
+------------------
+
+At times, it's useful only to depend on one or two scenarios of a story, and not the entire story
+The scenarios will be filtered using meta parameters defined in the scenarios:
+GivenStories: path/to/precondition.story#{id1:scenario1;id2:scenario2}
+
+Scenario:  Scenario 1
+Meta: @id1 scenario1
+      
+Given ... // scenario executed as a precondition
+ 
+Scenario:  Scenario 2
+Meta: @id2 scenario2
+      
+Given ... // scenario executed as a precondition
+ 
+Scenario:  Scenario 3
+Meta: @id3 scenario3
+      
+Given ... // scenario not executed as a precondition
+
+-----------------------------------------------------------------------
+Examples Table
+Then the traders activity is: 
+|name|trades|
+|Larry|3000|
+|Moe|1000|
+|Curly|2000|
+
+Then("the traders activity is: $activityTable")
+public void theTradersActivity(ExamplesTable activityTable) {
+    for (Parameters row : rows.getRowsAsParameters()) {
+        Trader trader = row.valueAs("name", Trader.class);
+        int trades = row.valueAs("trades", Integer.class);
+        System.out.println(trader.getName() + " has done " + trades + " trades");
+    }
+}
+
+Or,
+Then("the current trader activity is: $activityTable")
+public void theTradersActivityIs(ExamplesTable activityTable) {
+    Parameters row = activityTable.getRowAsParameters(0);
+    String name = row.valueAs("name", String.class);
+    String organisation = row.valueAs("organisation", String.class, "N/A");
+    System.out.println(name + " is part of organisation: " + organisation);
+}
+----------------------------------------------------------------------------
+@Then(value="the value returned is empty", priority=1)
+public void theValueIsEmpty()
+-----------------------------------------------------------------------------
+By default, value in the table are trimmed, i.e. any preceding and trailing whitespace is removed.
+This is the most useful and common usecase. If, for some reason, you need to preserve the whitespace,
+you can specify an optional parsing property:
+
+{trim=false}
+|name |rank    |
+|Larry|Stooge 3|
+|Moe  |Stooge 1|
+|Curly|Stooge 2|
+
+
+The separators are also configurable via inlined properties:
+{ignorableSeparator=!--,headerSeparator=!,valueSeparator=!,commentSeparator=#}
+!header 1!header 2! .... !header n!
+!-- An ignored row --!
+!value 11#comment in value!value 12! .... !value 1n!
+...
+!-- Another ignored row --!
+!value m1!value m2! .... !value mn!
+
+
+
+Table transformers allow the table to be transformed via an inlined property. E.g. to transform from a landscape table form we can to use the pre-registered transformer:
+{transformer=FROM_LANDSCAPE}
+|header 1|value 11| ... | value m1|
+...
+|header n|value 1n| .... !value mn!
+
+----------
+The tabular parameter can also be loaded from an external resource, be it a classpath resource or a URL.
+Given the traders: org/jbehave/examples/trader/stories/traders.table
+We need to enable theExamplesTable parameter converter to find the resource with the appropriate resource loader configured via the ExamplesTableFactory
+
+-------------------------------------------------------------------------------------------------------------------------
+To help users better manage their stories, JBehave allow the specification of meta information, both at story and scenario level.
+Meta information is provided as a list of name-value properties, e.g.:
+
+Meta:
+@author Mauro
+@themes UI Usability
+ 
+Scenario:  A scenario in which the user can view all relevant information via UI    
+Meta:
+@ignored false    
+Given ... // normal scenario steps
+ 
+Scenario:  A scenario which we cannot run every time due to some technical contraint
+Meta:
+@skip    
+@ignored true  
+Given ... // normal scenario steps
+
+When JBehave encounters the keyword Meta:, it collects the provided name-value properties,
+separated by the property keyword @. Both keywords are configurable and localizable.
+
+
+Note that spaces are also allowed after the property keyword @, but these will be ignored in the parsing. E.g. if we wrote:
+
+Meta:
+@ author Mauro
+@ themes UI Usability
+the property names would still be "author" and "themes".
+
+-------------------------------------------------------------------------------------------------------------------------------
+meta filter 
+default meta matcher :== ([+|-] [name] [value pattern])+
+where [+|-] indicates if the filter should include or exclude the meta property and the [value pattern] can be either an
+exact match of the property value (including empty value) or use the * matching notation.
+
+public class TraderStoryMaps extends JUnitStoryMaps {
+     
+    public TraderStoryMaps() {
+        configuredEmbedder().useMetaFilters(metaFilters());
+    }
+ 
+    @Override
+    public Configuration configuration() {
+        return new MostUsefulConfiguration()
+            .useStoryReporterBuilder(new StoryReporterBuilder()
+                .withCodeLocation(CodeLocations.codeLocationFromClass(this.getClass())));
+    }
+ 
+    @Override
+    protected List<String> metaFilters() {
+        return asList("+author *", "theme *","-skip");
+    }
+ 
+    @Override
+    protected List<String> storyPaths() {
+        return new StoryFinder().findPaths(codeLocationFromClass(this.getClass()), "**/*.story", "");
+    }         
+}
+
+
+<plugin>
+  <groupId>org.jbehave</groupId>
+  <artifactId>jbehave-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <id>map-stories</id>
+      <phase>integration-test</phase>
+      <configuration>
+        <includes>
+          <include>**/stories/*.story</include>
+        </includes>
+        <metaFilters>
+          <metaFilter>+author *</metaFilter>
+          <metaFilter>+theme *</metaFilter>
+          <metaFilter>-skip</metaFilter>
+        </metaFilters>              
+      </configuration>
+      <goals>
+        <goal>map-stories-as-paths</goal>
+      </goals>
+    </execution>
+  </executions>
+</plugin>    
+
+-------------------------------------------------------------------------------------------------------------
+Running JUnit Command Line : javac -cp /absolute/path/to/junit-4.12.jar /absolute/path/to/TestClassName.java
+Running TestNG Command Line : java -cp ".:*" org.testng.TestNG testng.xml
+
+--------------------------------------------------------------------------------------------------------------
+Maven goals support the following properties:
+
+sourceDirectory: defaults to src/main/java
+testSourceDirectory: defaults to src/test/java
+outputDirectory: defaults to target/classes
+testOutputDirectory: defaults to target/test-classes
+scope: [compile|test], defaults to compile
+includes: list of include patterns
+excludes: list of exclude patterns
+metaFilters: list of meta filters
+systemProperties: list of system properties to set during execution
+batch: [true|false], defaults to false
+skip: [true|false], defaults to false
+ignoreFailureInStories: [true|false], defaults to false
+ignoreFailureInView: [true|false], defaults to false
+generateViewAfterStories: [true|false], defaults to true
+storyTimeoutInSecs: defaults to 300
+storyTimeoutInSecsByPath: defaults to 300 (the default of storyTimeoutInSecs)
+Overrides the default value in storyTimeoutInSecs, and can be expressed as a CSV of regex
+expressions matching story paths. E.g. "*/long/.story:5000,*/short/.story:200,*/medium/m_story.story:1000"
+failOnStoryTimeout: [true|false], defaults to false
+threads: defaults to 1
+embedderClass: defaults to Embedder.
+injectableEmbedderClass: defaults to null
+storyFinderClass: defaults to StoryFinder
+
+<plugin>
+    <groupId>org.jbehave</groupId>
+    <artifactId>jbehave-maven-plugin</artifactId>
+    <version>[version]</version>
+    <executions>
+        <execution>
+            <id>run-stories-as-embeddables</id>
+            <phase>integration-test</phase>
+            <configuration>
+                <includes>
+                    <include>**/*Stories.java</include>
+                </includes>
+                <metaFilters>
+                    <metaFilter>+author *</metaFilter>
+                    <metaFilter>-skip</metaFilter>
+                </metaFilters>
+                <systemProperties>
+                    <property>
+                      <name>java.awt.headless</name>
+                      <value>true</value>
+                    </property>
+                </systemProperties>
+                <ignoreFailureInStories>true</ignoreFailureInStories>
+                <ignoreFailureInView>false</ignoreFailureInView>
+            </configuration>
+            <goals>
+                <goal>run-stories-as-embeddables</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+-------------              --------------------------------              ----------------
+                                  ADVANCED JBEHAVE
+-------------              --------------------------------              ----------------
+Maven Archetype For JBehave :
+To select a project from command-line, you can invoke: mvn archetype:generate -Dfilter=org.jbehave:jbehave
+Then choose : org.jbehave:jbehave-spring-archetype
+
+-------------------------------------------
+Alias :-
+@When("the item price is $price")
+@Alias("the item price becomes $price") // single alias
+public void theItemPriceIs(double price) {
+
+}
+
+Multiple :-
+@When("the item price is $price")
+@Aliases(values={"the item price becomes $price"
+                 "the item price equals to $price"}) // multiple aliases
+public void theItemPriceIs(double price) {
+
+}
+---------------------------------------------
+Pattern Variant :-
+
+For The Below 3 Lines -
+
+When the item cost is 10.0
+When the price is 10.0
+When the cost is 10.0
+
+Single Implementation Is Enough For All The Above Lines.
+
+@When("the {item |}{price|cost} is $price")
+public void theItemPriceIs(double price) {
+
+}
+
+A {x|y|z} B => A x B, A y B, A z B
+
+Pattern	Result :
+..A {x|y} B.. => ..A x B.. OR ..A y B.. =>
+..A {x|y|} B.. => ..A x B.. OR ..A y B.. OR ..A B..
+..A {x} B.. => ..A x B..
+
+----------------------------------------------
+Dependency Injection :-
+https://jbehave.org/reference/latest/dependency-injection.html
+
+----------------------------------------------
+Composite Steps :-
+@Given("<customer> has a cart")
+public void aCustomerHasACart(@Named("customer") String customer) {
+}
+
+@When("a <product> is added to the cart")
+public void aProductIsAddedToCart(@Named("product") String product) {
+}
+
+Can Be Composited In Next Step As :-
+Given("$customer has previously bought a $product") // used in normal parameter matching
+@Alias("<customer> has previously bought a <product>") // used in parameterised scenarios
+@Composite(steps = { "Given <customer> is logged in",
+                     "Given <customer> has a cart",
+                     "When a <product> is added to the cart" })
+public void aCompositeStep(@Named("customer") String customer, @Named("product") String product) { // composed steps use these named parameters
+
+Executing the composite step above is equivalent to executing :-
+Given customer previously bought a product
+Given customer is logged in
+Given customer has a cart
+When a ticket is added to the cart
+
+- The composite step is executed before the composed steps.
+- Means Composite Steps Run After The Actual Steps Runs.
+
+------------------------------------------------------------------------------------
+Parametrized :-
+Given a stock of <symbol> and a <threshold>
+When the stock is traded at <price>
+Then the alert status should be <status>
+
+Examples:
+|symbol|threshold|price|status|
+|STK1|10.0|5.0|OFF|
+|STK1|10.0|11.0|ON|
+
+The Examples: keyword signals that the entire scenario is parametrised and
+should be repeated for as many times as there are data rows in the examples table.
+At each execution, the named parameters are taken from the corresponding row.
+
+The use of the angle brackets <> is required as it is used to replace the name with the value in the reporting.
+@Given("a stock of symbol $symbol and a threshold of $threshold") // standalone
+@Alias("a stock of <symbol> and a <threshold>") // examples table
+public void aStock(@Named("symbol") String symbol, @Named("threshold") double threshold) {
+
+}
+            ------
+Moreover, the examples table alias can happily co-exists with other standalone aliases:
+
+@Given("a stock of symbol $symbol and a threshold of $threshold") // standalone
+@Aliases(values={"a stock with a symbol of $symbol and a threshold of $threshold", // a standalone alias
+                 "a stock of <symbol> and a <threshold>"}) // an examples table alias
+public void aStock(@Named("symbol") String symbol, @Named("threshold") double threshold) {
+
+}
+            -------
+Starting from version 4.0, the use of delimiter named parameters is the default behaviour.
+new MostUsefulConfiguration()
+        .useParameterControls(new ParameterControls().useDelimiterNamedParameters(true));
+		
+Tabular Parameters:
+
+Then the traders returned are:
+|name|rank|
+|Larry|Stooge 3|
+|Curly|Stooge 2|
+
+@Given("the traders ranks are: $ranksTable")
+public void theTraders(ExamplesTable ranksTable) {
+
+}
+        -------
+Then the traders activity is:
+|name|trades|
+|Larry|3000|
+|Moe|1000|
+|Curly|2000|
+@Then("the traders activity is: $activityTable")
+public void theTradersActivity(ExamplesTable activityTable) {
+    for (Parameters row : rows.getRowsAsParameters()) {
+        Trader trader = row.valueAs("name", Trader.class);
+        int trades = row.valueAs("trades", Integer.class);
+        System.out.println(trader.getName() + " has done " + trades + " trades");
+    }
+}
+
+Once modified, the table can be written to an output:
+
+ExamplesTable table = ... // provided or modified
+table.outputTo(new PrintStream(new FileOutputStream(new File("output.table))));
+----------------------------------------------------------------------------------------
+GivenStories :-
+!-- A precondition to entire story
+GivenStories: path/to/precondition1.story
+
+Scenario:  A scenario in which the user can run additional stories as pre-requisites
+!-- preconditions to scenario
+GivenStories: path/to/precondition2.story,
+              ...
+              path/to/preconditionN.story
+Given ... // normal scenario steps
+
+The stories will be executed in the alphabetical order of their names.
+
+        ---------
+GivenStories: path/to/precondition.story#{id1:scenario1;id2:scenario2}
+The precondition.story could e.g. contain three scenarios, of which we want to execute only the first two:
+
+Scenario:  Scenario 1
+Meta: @id1 scenario1
+Given ... // scenario executed as a precondition
+
+Scenario:  Scenario 2
+Meta: @id2 scenario2
+Given ... // scenario executed as a precondition
+
+Scenario:  Scenario 3
+Meta: @id3 scenario3
+Given ... // scenario not executed as a precondition
+
+----------------------------------------------------------------------------------------
+Meta:
+When JBehave encounters the keyword Meta:, it collects the provided name-value properties,
+separated by the property keyword @. Both keywords are configurable and localizable.
+
+For each given property, the first space separates the name from the value, e.g.
+in the property "themes UI Usability", the name is "themes" and the value is "UI Usability"
+
+Meta Matcher					Meta Property			Matched
++theme smoke testing -skip		@theme smoke testing	true
++theme smoke testing -skip		@skip					false
++theme smoke testing			@theme smoke testing	true
++theme smoke testing			@theme testing			false
+-skip							@theme testing			true
+-skip							@skip					false
++theme smoke testing -theme UI	@theme smoke testing	true
++theme smoke testing -theme UI	@theme UI				false
+
+Meta can be configured to have one via the configuration StoryControls:
+configuration.storyControls().useStoryMetaPrefix("story_").useScenarioMetaPrefix("scenario_");
+
+Filtering on Example Scenarios :-
+Meta info can also be specified to filter the example scenarios to be run:
+
+Scenario:  A scenario with filtering on examples 
+
+Given an operating system [value]
+ 
+Examples:
+{metaByRow=true}
+|Meta:|value|
+|@os Linux|Ubuntu|
+|@os Unix|OS X| 
+
+		---------
+embedder.useMetaFilters(asList("+author Mauro", "+theme filtering", "-skip"));
+UsingEmbedder(metaFilters = {"+author Mauro", "+theme filtering", "-skip"})
+		
+		--------
+
+Another use of meta info in our stories is to allow the definition of implicit scenario parameters used in our steps.
+Meta: 
+@theme parameters
+
+Scenario: scenario with hidden meta params
+Meta:
+@variant foo
+ 
+Given I have some step that implicitly requires meta params
+Then the theme is 'parameters' with variant 'foo'
+where the corresponding Java method is
+
+@Given("I have some step that implicitly requires meta params")
+public void givenAThemeAndVariant(@Named("variant") String variant, @Named("theme") String theme) {
+    this.theme = theme;
+    this.variant = variant;
+}
+-------------------------------------------------------------------------------------------
+Story Timeouts :-
+
+JBehave supports multiple timeout formats:
+
+Simple format: 1d 12h 30m 15s. Any of the units can be omitted.
+Digits format: only specifying digits will be understood as being expressed in seconds
+
+--------------------------------------------------------------------------------------------
+Multi-Threading :-
+The JBehave Embedder allows concurrent execution of stories. The multi-threading behaviour
+is controlled by setting the number of concurrent threads
+(which defaults to 1) via the EmbedderControls, or equivalently via @UsingEmbedder.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+	

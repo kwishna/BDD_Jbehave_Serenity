@@ -1,0 +1,14 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<test name="Regression1">
+<!--<groups>
+    <run>
+      <exclude name="brokenTests"  />
+      <include name="checkinTests"  />
+    </run>
+  </groups> -->
+  
+  <classes>
+    <class name="jbehave.JbehaveJunitBest">
+    </class>
+  </classes>
+</test>
